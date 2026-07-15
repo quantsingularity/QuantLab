@@ -2,6 +2,15 @@
 
 The plan is organised as six monthly milestones, each with a concrete deliverable and a supervisor review checkpoint. Buffer time (approximately 15 percent) is folded into each month.
 
+| Month | Goal                                                             | Key Artefacts                                                                         |
+| ----- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 1     | Establish the theoretical and engineering baseline               | Related-work chapter draft, agent-contract document, PoC repository tagged `v0.1`     |
+| 2     | Bring the pipeline from PoC to research-grade                    | `v0.5` tag, integration test suite, internal design document on reflection mechanisms |
+| 3     | Freeze the evaluation protocol and implement the three baselines | `v1.0` tag, evaluation harness, frozen benchmark specification                        |
+| 4     | Run the main experimental campaign and the reflection ablation   | Experimental results database, interim thesis draft                                   |
+| 5     | Stress the system on adversarial and realistic distortions       | Robustness chapter, annotated report dataset, third supervisor review                 |
+| 6     | Consolidate contributions and publish                            | Final thesis, public GitHub release, paper draft                                      |
+
 ## Month 1: Foundation
 
 **Goal.** Establish the theoretical and engineering baseline.

@@ -51,10 +51,12 @@ Three baselines are run on the identical set of ten research objectives with an 
 
 ## 5. Robustness Studies (Month 5)
 
-- **Regime shift.** Split the out-of-sample window into low-volatility (VIX < 20) and high-volatility (VIX >= 20) sub-samples; report metrics on each.
-- **Injected leakage.** Deliberately corrupt one feature with a one-day-ahead label; verify the Backtesting Agent's leakage guard flags it.
-- **Survivorship bias.** Rerun on a point-in-time NASDAQ 100 constituent list; report Sharpe delta.
-- **Prompt sensitivity.** Re-run each objective with three prompt paraphrases; report metric variance.
+| Study              | Description                                                                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Regime shift       | Split the out-of-sample window into low-volatility (VIX < 20) and high-volatility (VIX >= 20) sub-samples; report metrics on each. |
+| Injected leakage   | Deliberately corrupt one feature with a one-day-ahead label; verify the Backtesting Agent's leakage guard flags it.                |
+| Survivorship bias  | Rerun on a point-in-time NASDAQ 100 constituent list; report Sharpe delta.                                                         |
+| Prompt sensitivity | Re-run each objective with three prompt paraphrases; report metric variance.                                                       |
 
 ## 6. Reporting Template
 

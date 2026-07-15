@@ -31,15 +31,17 @@ The thesis contribution is not "another autonomous agent"; it is a rigorous eval
 
 Nine agents cooperate over a shared, versioned state:
 
-- Research Planner Agent
-- Literature Review Agent
-- Hypothesis Generation Agent
-- Data Engineering Agent
-- Model Development Agent
-- Backtesting Agent
-- Evaluation Agent
-- Research Report Agent
-- Reflective Memory Agent
+| Agent                       | Role                                                                   |
+| --------------------------- | ---------------------------------------------------------------------- |
+| Research Planner Agent      | Builds the task DAG that sequences the rest of the pipeline            |
+| Literature Review Agent     | Retrieves and summarises related work for the objective                |
+| Hypothesis Generation Agent | Formulates a testable hypothesis with an explicit null and alternative |
+| Data Engineering Agent      | Loads, caches, and builds leakage-checked features                     |
+| Model Development Agent     | Fits the signal or model artifact used by the strategy                 |
+| Backtesting Agent           | Runs the vectorised, leakage-guarded backtest                          |
+| Evaluation Agent            | Computes financial and research-quality metrics                        |
+| Research Report Agent       | Renders the markdown and PDF research report                           |
+| Reflective Memory Agent     | Records per-stage critiques for cross-run learning                     |
 
 ```mermaid
 flowchart LR
@@ -67,14 +69,14 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Requirements to run the PoC: Python 3.11+. That's it -- the PoC agents are
+Requirements to run the PoC: Python 3.11+. That's it: the PoC agents are
 deterministic (no LLM calls yet, see [Roadmap](#roadmap)) and the Reflective
 Memory Agent falls back to a local `runs/memory.jsonl` file when Postgres
 isn't configured, so nothing else needs to be running.
 
 Docker (`docker compose up -d postgres redis`) and an `OPENAI_API_KEY` (see
 `.env.example`) are only needed for the v0.5 system once the agents call an
-LLM and the memory store moves to Postgres + pgvector -- not for the PoC
+LLM and the memory store moves to Postgres + pgvector, not for the PoC
 described in this repo today.
 
 ## Quickstart Demo
@@ -93,19 +95,18 @@ Or drive it from a config file instead of flags (see [Configuration](#configurat
 python -m quantlab.run --config configs/momentum_nasdaq.yaml --out ./runs/momentum_nasdaq
 ```
 
-Outputs:
+This produces `runs/momentum_nasdaq/<run_id>/` containing:
 
-```
-runs/momentum_nasdaq/<run_id>/
-├── report.md              # Auto-generated research report
-├── report.pdf             # PDF rendering (skipped if reportlab isn't installed)
-├── equity_curve.png       # Cumulative returns figure
-├── equity_curve.parquet   # Raw equity curve
-├── metrics.json           # Machine-readable metrics
-├── trades.parquet         # Trade log
-├── reflections.jsonl      # Per-stage critiques from the Reflective Memory Agent
-└── state.json             # Full run snapshot
-```
+| File                   | Description                                          |
+| ---------------------- | ---------------------------------------------------- |
+| `report.md`            | Auto-generated research report                       |
+| `report.pdf`           | PDF rendering (skipped if reportlab isn't installed) |
+| `equity_curve.png`     | Cumulative returns figure                            |
+| `equity_curve.parquet` | Raw equity curve                                     |
+| `metrics.json`         | Machine-readable metrics                             |
+| `trades.parquet`       | Trade log                                            |
+| `reflections.jsonl`    | Per-stage critiques from the Reflective Memory Agent |
+| `state.json`           | Full run snapshot                                    |
 
 ## Repository Layout
 
@@ -150,10 +151,20 @@ budget:
   max_usd_per_run: 5.0
 ```
 
+| Field                  | Purpose                                             | Status            |
+| ---------------------- | --------------------------------------------------- | ----------------- |
+| `objective`            | Free-text research objective passed to the pipeline | Used today        |
+| `universe`             | Ticker universe to trade                            | Used today        |
+| `start` / `end`        | Full sample date range                              | Used today        |
+| `oos_start`            | Start of the out-of-sample evaluation window        | Used today        |
+| `transaction_cost_bps` | Per-side transaction cost, in basis points          | Used today        |
+| `models`               | Model routing per agent                             | Reserved for v0.5 |
+| `budget`               | Token and USD spend caps per run                    | Reserved for v0.5 |
+
 `objective`, `universe`, `start`, `end`, `oos_start`, and
 `transaction_cost_bps` are read by the Data Engineering, Backtesting, and
 Evaluation agents today (`python -m quantlab.run --config configs/momentum_nasdaq.yaml`).
-`models` and `budget` are not consumed yet -- the PoC's agents are
+`models` and `budget` are not consumed yet: the PoC's agents are
 deterministic stubs with no LLM calls (see [Roadmap](#roadmap)); those
 sections are the intended v0.5 interface for model routing and cost control
 once real LLM calls land.
@@ -170,7 +181,7 @@ python -m quantlab.eval.run_benchmark --config configs/benchmark.yaml
 
 Honest scope note: since the PoC's agents are deterministic, the benchmark
 can't yet reproduce the single-agent or human-assisted baselines from the
-thesis proposal -- those need the v0.5 LLM-driven agents. What it does give
+thesis proposal; those need the v0.5 LLM-driven agents. What it does give
 you today, end to end, is a genuine reflective-vs-non-reflective ablation
 (`use_reflection: true/false` in `configs/benchmark.yaml`), which is the
 "non-reflective multi-agent baseline" row in `docs/03_Evaluation_Framework.md`.
@@ -185,14 +196,16 @@ mypy src
 
 ## Roadmap
 
-See [`docs/04_Six_Month_Plan.md`](docs/04_Six_Month_Plan.md) for the full six-month thesis plan. High level:
+See [`docs/04_Six_Month_Plan.md`](docs/04_Six_Month_Plan.md) for the full six-month thesis plan.
 
-- **M1** PoC and related-work chapter
-- **M2** Full nine-agent system with reflective memory
-- **M3** Evaluation harness and baselines
-- **M4** Large-scale experiments and ablations
-- **M5** Robustness studies
-- **M6** Thesis writing and open-source release
+| Milestone | Focus                                         |
+| --------- | --------------------------------------------- |
+| M1        | PoC and related-work chapter                  |
+| M2        | Full nine-agent system with reflective memory |
+| M3        | Evaluation harness and baselines              |
+| M4        | Large-scale experiments and ablations         |
+| M5        | Robustness studies                            |
+| M6        | Thesis writing and open-source release        |
 
 ## License
 

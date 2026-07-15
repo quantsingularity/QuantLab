@@ -21,9 +21,11 @@
 
 ## 2. Why not a different stack
 
-- **LangChain (classic).** Higher abstraction but lower observability; LangGraph gives explicit control-flow graphs suitable for a reproducibility-first thesis.
-- **AutoGen.** Excellent for conversational agents, weaker for typed DAGs and checkpointing.
-- **Local open-weight LLMs.** Considered for cost, but the reproducibility of a frozen `gpt-4o-2024-08-06` snapshot outweighs the marginal cost gain for a six-month thesis. Ablation with a strong open model (for example `Qwen2.5-72B`) is planned in Month 4.
+| Alternative            | Why not                                                                                                                                                                                                                             |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LangChain (classic)    | Higher abstraction but lower observability; LangGraph gives explicit control-flow graphs suitable for a reproducibility-first thesis.                                                                                               |
+| AutoGen                | Excellent for conversational agents, weaker for typed DAGs and checkpointing.                                                                                                                                                       |
+| Local open-weight LLMs | Considered for cost, but the reproducibility of a frozen `gpt-4o-2024-08-06` snapshot outweighs the marginal cost gain for a six-month thesis. Ablation with a strong open model (for example `Qwen2.5-72B`) is planned in Month 4. |
 
 ## 3. Environment
 

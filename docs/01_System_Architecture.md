@@ -2,10 +2,12 @@
 
 ## 1. Design Principles
 
-- **Graph-structured orchestration.** Agents are nodes in a LangGraph state machine, not free-form conversationalists. Edges encode explicit contracts and are unit-testable.
-- **Shared blackboard.** All agents read and write a typed `ResearchState` object held in PostgreSQL, with vector embeddings in Redis for fast semantic recall.
-- **Separation of planning, action, and reflection.** The Planner produces a task DAG; workers execute; the Reflective Memory Agent critiques after each stage and after each full run.
-- **Leakage-aware by construction.** The Backtesting Agent refuses any feature whose lineage (traced via the shared state) touches future data.
+| Principle                                      | Description                                                                                                                             |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Graph-structured orchestration                 | Agents are nodes in a LangGraph state machine, not free-form conversationalists. Edges encode explicit contracts and are unit-testable. |
+| Shared blackboard                              | All agents read and write a typed `ResearchState` object held in PostgreSQL, with vector embeddings in Redis for fast semantic recall.  |
+| Separation of planning, action, and reflection | The Planner produces a task DAG; workers execute; the Reflective Memory Agent critiques after each stage and after each full run.       |
+| Leakage-aware by construction                  | The Backtesting Agent refuses any feature whose lineage (traced via the shared state) touches future data.                              |
 
 ## 2. ASCII Architecture Diagram
 
