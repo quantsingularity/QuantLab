@@ -1,0 +1,12 @@
+# Comparative benchmark: reflective vs. non-reflective multi-agent pipeline.
+
+output_dir: ./runs/benchmark
+
+runs:
+  - name: momentum_nasdaq_reflective
+    objective: "Develop a momentum strategy for the NASDAQ 100"
+    use_reflection: true
+
+  - name: momentum_nasdaq_non_reflective
+    objective: "Develop a momentum strategy for the NASDAQ 100"
+    use_reflection: false

@@ -1,0 +1,15 @@
+objective: "Develop a momentum strategy for the NASDAQ 100"
+universe: nasdaq_100
+start: 2010-01-01
+end: 2025-01-01
+oos_start: 2022-01-01
+transaction_cost_bps: 5
+models:
+  planner: gpt-4o
+  hypothesis: gpt-4o
+  summariser: gpt-4o-mini
+  report: gpt-4o
+budget:
+  max_tokens_per_run: 400000
+  max_usd_per_run: 5.0
+seed: 42
