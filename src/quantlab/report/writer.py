@@ -471,6 +471,7 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
     from reportlab.platypus import (
         HRFlowable,
         Image,
+        KeepTogether,
         Paragraph,
         Spacer,
         Table,
@@ -551,6 +552,24 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
     story: list[Any] = []
     table_buffer: list[list[str]] = []
     quote_buffer: list[str] = []
+    pending_heading: list[Any] = []
+
+    def _emit(flowable: Any) -> None:
+        """Append a content flowable, gluing it to any heading just emitted.
+
+        A heading paragraph (and its rule, for h2) is held in
+        pending_heading rather than appended to story directly. The next
+        real content flowable emitted here is grouped with it inside a
+        single KeepTogether, so ReportLab's page-breaking never strands a
+        heading alone at the bottom of a page with its content pushed to
+        the next one.
+        """
+        if pending_heading:
+            group = [*pending_heading, flowable]
+            pending_heading.clear()
+            story.append(KeepTogether(group))
+        else:
+            story.append(flowable)
 
     def _flush_table() -> None:
         if not table_buffer:
@@ -574,7 +593,7 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
                 tstyle.append(("BACKGROUND", (0, r), (-1, r), pal["row_alt"]))
             tstyle.append(("LINEBELOW", (0, r), (-1, r), 0.4, pal["border"]))
         t.setStyle(TableStyle(tstyle))
-        story.append(t)
+        _emit(t)
         story.append(Spacer(1, 12))
         table_buffer.clear()
 
@@ -598,7 +617,7 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
                 ]
             )
         )
-        story.append(panel)
+        _emit(panel)
         story.append(Spacer(1, 12))
         quote_buffer.clear()
 
@@ -623,10 +642,11 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
         _flush_quote()
 
         if not stripped:
-            story.append(Spacer(1, 6))
+            if not pending_heading:
+                story.append(Spacer(1, 6))
         elif stripped == "---":
-            story.append(Spacer(1, 4))
-            story.append(
+            _emit(Spacer(1, 4))
+            _emit(
                 HRFlowable(
                     width="100%",
                     thickness=0.75,
@@ -636,18 +656,18 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
                 )
             )
         elif stripped.startswith("# "):
-            story.append(
+            pending_heading.append(
                 Paragraph(_inline_to_reportlab_markup(stripped[2:]), styles["title"])
             )
         elif stripped.startswith("### "):
-            story.append(
+            pending_heading.append(
                 Paragraph(_inline_to_reportlab_markup(stripped[4:]), styles["subtitle"])
             )
         elif stripped.startswith("## "):
-            story.append(
+            pending_heading.append(
                 Paragraph(_inline_to_reportlab_markup(stripped[3:]), styles["h2"])
             )
-            story.append(
+            pending_heading.append(
                 HRFlowable(
                     width="100%",
                     thickness=1,
@@ -663,9 +683,7 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
                     reader = ImageReader(str(img_path))
                     iw, ih = reader.getSize()
                     scale = min(1.0, content_width / iw) if iw else 1.0
-                    story.append(
-                        Image(str(img_path), width=iw * scale, height=ih * scale)
-                    )
+                    _emit(Image(str(img_path), width=iw * scale, height=ih * scale))
                 except Exception as exc:
                     print(
                         f"[quantlab.report.writer] Skipping unreadable chart image: {exc}"
@@ -675,29 +693,27 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
             and stripped.endswith("*")
             and not stripped.startswith("**")
         ):
-            story.append(
+            _emit(
                 Paragraph(
                     _inline_to_reportlab_markup(stripped.strip("*")), styles["caption"]
                 )
             )
         elif stripped.startswith("- "):
-            story.append(
+            _emit(
                 Paragraph(
                     "&bull;&nbsp;&nbsp;" + _inline_to_reportlab_markup(stripped[2:]),
                     styles["body"],
                 )
             )
         elif _NUMBERED_RE.match(stripped):
-            story.append(
-                Paragraph(_inline_to_reportlab_markup(stripped), styles["body"])
-            )
+            _emit(Paragraph(_inline_to_reportlab_markup(stripped), styles["body"]))
         else:
-            story.append(
-                Paragraph(_inline_to_reportlab_markup(stripped), styles["body"])
-            )
+            _emit(Paragraph(_inline_to_reportlab_markup(stripped), styles["body"]))
 
     _flush_table()
     _flush_quote()
+    if pending_heading:
+        story.append(KeepTogether(list(pending_heading)))
     return story
 
 

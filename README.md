@@ -31,17 +31,17 @@ The thesis contribution is not "another autonomous agent"; it is a rigorous eval
 
 Nine agents cooperate over a shared, versioned state:
 
-| Agent                       | Role                                                                            |
-| --------------------------- | ------------------------------------------------------------------------------- |
-| Research Planner Agent      | Builds the task DAG that sequences the rest of the pipeline                     |
-| Literature Review Agent     | Retrieves and summarises related work for the objective                         |
-| Hypothesis Generation Agent | Formulates a testable hypothesis with an explicit null and alternative          |
-| Data Engineering Agent      | Loads, caches, and builds leakage-checked features                              |
+| Agent                       | Role                                                                   |
+| --------------------------- | ---------------------------------------------------------------------- |
+| Research Planner Agent      | Builds the task DAG that sequences the rest of the pipeline            |
+| Literature Review Agent     | Retrieves and summarises related work for the objective                |
+| Hypothesis Generation Agent | Formulates a testable hypothesis with an explicit null and alternative |
+| Data Engineering Agent      | Loads, caches, and builds leakage-checked features                     |
 | Model Development Agent     | Builds the signal: rank-based by default, or a walk-forward ridge/xgboost model |
-| Backtesting Agent           | Runs the vectorised, leakage-guarded backtest                                   |
-| Evaluation Agent            | Computes financial and research-quality metrics                                 |
-| Research Report Agent       | Renders the markdown and PDF research report                                    |
-| Reflective Memory Agent     | Records per-stage critiques for cross-run learning                              |
+| Backtesting Agent           | Runs the vectorised, leakage-guarded backtest                          |
+| Evaluation Agent            | Computes financial and research-quality metrics                        |
+| Research Report Agent       | Renders the markdown and PDF research report                           |
+| Reflective Memory Agent     | Records per-stage critiques for cross-run learning                     |
 
 ```mermaid
 flowchart LR
@@ -193,17 +193,17 @@ budget:
   max_usd_per_run: 5.0
 ```
 
-| Field                  | Purpose                                                           | Status                                 |
-| ---------------------- | ----------------------------------------------------------------- | -------------------------------------- |
-| `objective`            | Free-text research objective passed to the pipeline               | Used today                             |
-| `universe`             | Ticker universe to trade                                          | Used today                             |
-| `start` / `end`        | Full sample date range                                            | Used today                             |
-| `oos_start`            | Start of the out-of-sample evaluation window                      | Used today                             |
-| `transaction_cost_bps` | Per-side transaction cost, in basis points                        | Used today                             |
-| `model_kind`           | `rank_signal` (default), `ridge`, or `xgboost`                    | Used today                             |
-| `model_params`         | `lookback`, `skip`, `top_pct`, `long_only`, `min_train_periods`   | Used today                             |
+| Field                  | Purpose                                                        | Status                       |
+| ----------------------- | --------------------------------------------------------------- | ----------------------------- |
+| `objective`            | Free-text research objective passed to the pipeline            | Used today                   |
+| `universe`             | Ticker universe to trade                                       | Used today                   |
+| `start` / `end`        | Full sample date range                                         | Used today                   |
+| `oos_start`            | Start of the out-of-sample evaluation window                   | Used today                   |
+| `transaction_cost_bps` | Per-side transaction cost, in basis points                     | Used today                   |
+| `model_kind`           | `rank_signal` (default), `ridge`, or `xgboost`                 | Used today                   |
+| `model_params`         | `lookback`, `skip`, `top_pct`, `long_only`, `min_train_periods` | Used today                   |
 | `models`               | Model routing per agent (planner, hypothesis, summariser, report) | Used today when set, otherwise skipped |
-| `budget`               | Token and USD spend caps per run                                  | Used today when `models` is set        |
+| `budget`               | Token and USD spend caps per run                                | Used today when `models` is set |
 
 `objective`, `universe`, `start`, `end`, `oos_start`, `transaction_cost_bps`,
 `model_kind`, and `model_params` are always read by the Data Engineering,

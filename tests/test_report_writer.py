@@ -14,7 +14,7 @@ from quantlab.core.state import (
     ResearchState,
 )
 from quantlab.data.loaders import load_prices
-from quantlab.report.writer import render_markdown
+from quantlab.report.writer import _markdown_to_flowables, render_markdown
 
 
 def _state(tmp_path: Path) -> ResearchState:
@@ -97,3 +97,44 @@ def test_render_markdown_reflects_model_kind(tmp_path):
     )
     md = render_markdown(state)
     assert "`ridge`" in md
+
+
+def test_section_heading_is_kept_together_with_its_first_content_block(tmp_path):
+    """Regression test: a heading must never be left as the last flowable on a page.
+
+    quantlab.report.writer used to append each heading straight to the PDF
+    story, so ReportLab's automatic pagination could strand a heading alone
+    at the bottom of a page with its content pushed to the next one. Every
+    heading must now be grouped with the content that immediately follows
+    it inside a single KeepTogether.
+    """
+    from reportlab.platypus import HRFlowable, KeepTogether, Paragraph
+
+    md = "## 3. Data\n\nSome data description paragraph.\n"
+    flowables = _markdown_to_flowables(md, tmp_path)
+
+    groups = [f for f in flowables if isinstance(f, KeepTogether)]
+    assert len(groups) == 1
+    group_contents = groups[0]._content
+    assert isinstance(group_contents[0], Paragraph)
+    assert "3. Data" in group_contents[0].text
+    assert any(isinstance(item, HRFlowable) for item in group_contents)
+    assert isinstance(group_contents[-1], Paragraph)
+    assert "Some data description paragraph" in group_contents[-1].text
+
+
+def test_trailing_heading_with_no_following_content_is_still_grouped(tmp_path):
+    from reportlab.platypus import KeepTogether
+
+    md = "## 9. Reproducibility\n"
+    flowables = _markdown_to_flowables(md, tmp_path)
+    assert any(isinstance(f, KeepTogether) for f in flowables)
+
+
+def test_multiple_sections_each_get_their_own_keep_together_group(tmp_path):
+    from reportlab.platypus import KeepTogether
+
+    md = "## Section A\n\nParagraph A.\n\n## Section B\n\nParagraph B.\n"
+    flowables = _markdown_to_flowables(md, tmp_path)
+    groups = [f for f in flowables if isinstance(f, KeepTogether)]
+    assert len(groups) == 2
