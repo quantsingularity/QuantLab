@@ -1,37 +1,46 @@
 """Literature Review Agent: retrieves and summarises papers.
 
 Tries the public arXiv API first (a real HTTP call, stdlib only, no extra
-dependency). If arXiv is unreachable, times out, or returns nothing parseable
--- entirely plausible in a sandboxed or offline dev environment -- this falls
-back to a small bundled seed corpus of momentum papers so the pipeline never
-crashes and always runs deterministically end to end. The full v0.5
-implementation additionally queries Semantic Scholar and summarises with an
-LLM instead of using the raw abstract.
+dependency). If arXiv is unreachable, times out, or returns nothing
+parseable, entirely plausible in a sandboxed or offline environment, this
+falls back to a small bundled seed corpus of momentum papers so the
+pipeline never crashes and always runs deterministically end to end. When
+an LLM is configured for this stage and available, retrieved abstracts are
+additionally condensed into a one-sentence key finding; the seed corpus
+already carries curated key findings and is left untouched either way.
 
 Query construction and relevance filtering
 -------------------------------------------
 arXiv's `all:` search field matches loosely against every metadata field, so
-sending the raw objective sentence verbatim (e.g. "Develop a momentum
-strategy for the NASDAQ 100") can surface physics papers that happen to use
-the word "momentum" in its literal sense (particle momentum, angular
-momentum, etc.) instead of the financial factor -- which is exactly what
-produced irrelevant citations in the research report. The fix is two-fold:
-(1) the query is scoped to the arXiv quantitative-finance category
+sending the raw objective sentence verbatim (for example "Develop a
+momentum strategy for the NASDAQ 100") can surface physics papers that
+happen to use the word "momentum" in its literal sense (particle momentum,
+angular momentum, and so on) instead of the financial factor. The fix is
+two-fold: (1) the query is scoped to the arXiv quantitative-finance category
 (`cat:q-fin.*`) and built from finance-relevant keywords extracted from the
-objective rather than the raw sentence, and (2) every candidate paper --
-regardless of category -- is additionally checked against a finance-domain
+objective rather than the raw sentence, and (2) every candidate paper,
+regardless of category, is additionally checked against a finance-domain
 keyword filter before it is allowed into the report. Only if fewer than 3
-papers survive both filters do we fall back to `SEED_CORPUS`.
+papers survive both filters do we fall back to SEED_CORPUS.
 """
 
 from __future__ import annotations
 
+import json
 import re
 import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from typing import Any
 
+from quantlab.core.llm import (
+    LLM,
+    BudgetExceededError,
+    LLMUnavailableError,
+    apply_usage,
+    within_budget,
+)
 from quantlab.core.state import PaperSummary, ResearchState
 
 _ARXIV_API = "http://export.arxiv.org/api/query"
@@ -70,9 +79,6 @@ _QUERY_STOPWORDS = {
     "investigate",
 }
 
-# If a candidate paper's title+abstract contains none of these terms, it is
-# almost certainly not a quantitative-finance paper (this is what catches
-# stray particle-physics / astrophysics "momentum" results).
 _FINANCE_HINT_TERMS = (
     "moment",
     "portfolio",
@@ -102,6 +108,11 @@ _FINANCE_HINT_TERMS = (
     "securities",
 )
 
+SUMMARY_SYSTEM = """You summarise finance research papers for a research report. Given a
+JSON list of objects with index, title, abstract, output a JSON object with a single
+key "summaries": a list of objects with index and summary, where summary is a single
+sentence stating the paper's key finding for a quantitative finance audience."""
+
 
 def _extract_query_terms(objective: str, max_terms: int = 6) -> list[str]:
     """Pull a handful of finance-relevant keywords out of a free-text objective."""
@@ -126,11 +137,11 @@ def _build_search_query(topic: str) -> str:
 
 
 def _query_arxiv(topic: str, max_results: int = 5) -> list[PaperSummary]:
-    """Query the public arXiv API and return up to `max_results` finance papers.
+    """Query the public arXiv API and return up to max_results finance papers.
 
-    Returns an empty list (never raises) if arXiv is unreachable, the
-    response can't be parsed, or no relevant entries come back -- callers
-    are expected to fall back to `SEED_CORPUS` in that case.
+    Returns an empty list, and never raises, if arXiv is unreachable, the
+    response cannot be parsed, or no relevant entries come back. Callers
+    are expected to fall back to SEED_CORPUS in that case.
     """
     params = urllib.parse.urlencode(
         {
@@ -218,8 +229,52 @@ SEED_CORPUS: list[PaperSummary] = [
 ]
 
 
+def _summarize_with_llm(
+    papers: list[PaperSummary], model_name: str, state: ResearchState
+) -> None:
+    cfg = state.get("run_config", {})
+    budget = cfg.get("budget")
+    if not within_budget(state, budget):
+        return
+
+    payload = [
+        {"index": i, "title": p.title, "abstract": p.abstract}
+        for i, p in enumerate(papers)
+    ]
+    try:
+        llm = LLM(model=model_name)
+        parsed, response = llm.complete_json(SUMMARY_SYSTEM, json.dumps(payload))
+        apply_usage(state, response, budget)
+    except (LLMUnavailableError, ValueError, BudgetExceededError):
+        return
+
+    summaries: Any = parsed.get("summaries")
+    if not isinstance(summaries, list):
+        return
+    for entry in summaries:
+        if not isinstance(entry, dict):
+            continue
+        index = entry.get("index")
+        summary = entry.get("summary")
+        if (
+            isinstance(index, int)
+            and 0 <= index < len(papers)
+            and isinstance(summary, str)
+            and summary.strip()
+        ):
+            papers[index].key_findings = summary.strip()
+
+
 def run(state: ResearchState) -> ResearchState:
     topic = state.get("objective") or "momentum investing equities"
-    papers = _query_arxiv(topic)
-    state["literature"] = papers if len(papers) >= 3 else SEED_CORPUS
+    retrieved = _query_arxiv(topic)
+    used_seed_corpus = len(retrieved) < 3
+    papers = SEED_CORPUS if used_seed_corpus else retrieved
+
+    if not used_seed_corpus:
+        model_name = state.get("run_config", {}).get("models", {}).get("summariser")
+        if model_name and LLM.available():
+            _summarize_with_llm(papers, model_name, state)
+
+    state["literature"] = papers
     return state

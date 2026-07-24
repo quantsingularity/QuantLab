@@ -33,6 +33,12 @@ The plan is organised as six monthly milestones, each with a concrete deliverabl
 
 **Artefacts.** `v0.5` tag; integration test suite; internal design document on reflection mechanisms.
 
+_Status note: optional LLM-backed drafting (with a validated, deterministic
+fallback per stage) and a PostgreSQL plus pgvector reflective memory
+backend (with a JSONL fallback) have already landed in the current
+repository, ahead of this milestone. MLflow tracking and LangGraph
+checkpointing have not._
+
 ## Month 3: Evaluation Harness and Baselines
 
 **Goal.** Freeze the evaluation protocol and implement the three baselines.

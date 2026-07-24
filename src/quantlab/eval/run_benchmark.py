@@ -6,14 +6,17 @@ system-efficiency metrics into a single CSV/markdown summary. This is the
 concrete implementation of the "Comparative Evaluation" layer described in
 `docs/03_Evaluation_Framework.md`.
 
-Honest scope note: the PoC's agents are deterministic (no LLM calls -- see
-`agents/hypothesis.py`, `agents/planner.py`), so the *objective* text does
-not yet steer agent behaviour, and this harness cannot yet reproduce the
-"single-agent GPT-4o baseline" or "human-assisted workflow baseline" from the
-thesis proposal; those require the v0.5 LLM-driven agents. What it *does*
-give you today is a genuine, reproducible ablation of the reflection layer
-(`use_reflection: true` vs `false`), which is the "non-reflective multi-agent
-baseline" row in the same table -- exercised end to end, not simulated.
+Honest scope note: `agents/planner.py`, `agents/hypothesis.py`, and
+`agents/literature.py` can optionally call an LLM when `run_config.models`
+names one for that stage and `OPENAI_API_KEY` is set, but every one of them
+still has a fully deterministic fallback and none is used by default in
+`configs/benchmark.yaml`. This harness therefore cannot yet reproduce the
+"single-agent GPT-4o baseline" or "human-assisted workflow baseline" from
+the thesis proposal, since those describe a different system architecture,
+not just an LLM call. What it *does* give you today is a genuine,
+reproducible ablation of the reflection layer (`use_reflection: true` vs
+`false`), which is the "non-reflective multi-agent baseline" row in the
+same table, exercised end to end, not simulated.
 
 Usage:
     python -m quantlab.eval.run_benchmark --config configs/benchmark.yaml

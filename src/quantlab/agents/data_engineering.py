@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from quantlab.core.seeding import DEFAULT_SEED
 from quantlab.core.state import FeatureSpec, ResearchState
 from quantlab.data.loaders import load_prices
 
@@ -15,8 +16,9 @@ def run(state: ResearchState) -> ResearchState:
     universe = cfg.get("universe", state["hypothesis"].universe)
     start = cfg.get("start", "2010-01-01")
     end = cfg.get("end", "2025-01-01")
+    seed = int(cfg.get("seed", DEFAULT_SEED))
     prices_path = load_prices(
-        universe=universe, start=start, end=end, cache_dir=CACHE_DIR
+        universe=universe, start=start, end=end, cache_dir=CACHE_DIR, seed=seed
     )
 
     state["features"] = [

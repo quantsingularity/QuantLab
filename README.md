@@ -31,17 +31,17 @@ The thesis contribution is not "another autonomous agent"; it is a rigorous eval
 
 Nine agents cooperate over a shared, versioned state:
 
-| Agent                       | Role                                                                   |
-| --------------------------- | ---------------------------------------------------------------------- |
-| Research Planner Agent      | Builds the task DAG that sequences the rest of the pipeline            |
-| Literature Review Agent     | Retrieves and summarises related work for the objective                |
-| Hypothesis Generation Agent | Formulates a testable hypothesis with an explicit null and alternative |
-| Data Engineering Agent      | Loads, caches, and builds leakage-checked features                     |
-| Model Development Agent     | Fits the signal or model artifact used by the strategy                 |
-| Backtesting Agent           | Runs the vectorised, leakage-guarded backtest                          |
-| Evaluation Agent            | Computes financial and research-quality metrics                        |
-| Research Report Agent       | Renders the markdown and PDF research report                           |
-| Reflective Memory Agent     | Records per-stage critiques for cross-run learning                     |
+| Agent                       | Role                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------- |
+| Research Planner Agent      | Builds the task DAG that sequences the rest of the pipeline                     |
+| Literature Review Agent     | Retrieves and summarises related work for the objective                         |
+| Hypothesis Generation Agent | Formulates a testable hypothesis with an explicit null and alternative          |
+| Data Engineering Agent      | Loads, caches, and builds leakage-checked features                              |
+| Model Development Agent     | Builds the signal: rank-based by default, or a walk-forward ridge/xgboost model |
+| Backtesting Agent           | Runs the vectorised, leakage-guarded backtest                                   |
+| Evaluation Agent            | Computes financial and research-quality metrics                                 |
+| Research Report Agent       | Renders the markdown and PDF research report                                    |
+| Reflective Memory Agent     | Records per-stage critiques for cross-run learning                              |
 
 ```mermaid
 flowchart LR
@@ -69,19 +69,50 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Requirements to run the PoC: Python 3.11+. That's it: the PoC agents are
-deterministic (no LLM calls yet, see [Roadmap](#roadmap)) and the Reflective
-Memory Agent falls back to a local `runs/memory.jsonl` file when Postgres
-isn't configured, so nothing else needs to be running.
+Requirements to run the demo: Python 3.11+. That's it. The pipeline is
+offline-first: if a price provider or an LLM isn't reachable, every agent
+that could use one falls back to a deterministic path automatically, so
+nothing else needs to be running for a first run.
 
-Docker (`docker compose up -d postgres redis`) and an `OPENAI_API_KEY` (see
-`.env.example`) are only needed for the v0.5 system once the agents call an
-LLM and the memory store moves to Postgres + pgvector, not for the PoC
-described in this repo today.
+Two optional extras add real capability on top of that baseline:
+
+```bash
+pip install -e ".[dev,ml]"        # xgboost-backed walk-forward signal
+pip install -e ".[dev,postgres]"  # PostgreSQL + pgvector reflective memory
+```
+
+Without `.[ml]`, requesting `model_kind: xgboost` in a config falls back to
+ridge regression with a printed notice. Without `.[postgres]`, or without
+`POSTGRES_DSN` set, the Reflective Memory Agent falls back to a local
+`runs/memory.jsonl` file, embedded and recalled by cosine similarity with
+no external dependency. To use a real Postgres instance instead:
+
+```bash
+docker compose up -d postgres
+export POSTGRES_DSN=postgresql://quantlab:quantlab@localhost:5432/quantlab
+```
+
+`docker-compose.yml` also provisions a `redis` service for a future
+task-queue and caching layer; no agent reads from it yet, so it is not
+required for anything in this repository today.
+
+Set `OPENAI_API_KEY` (see `.env.example`) and name a model under a config's
+`models` section to let the Planner, Hypothesis, Literature, and Report
+agents draft their text with an LLM instead of their deterministic
+templates; every one of them validates the response and falls back
+automatically if the call fails, times out, returns malformed JSON, or
+would exceed the configured `budget`. This is optional, not required: the
+pipeline is fully functional, and every claim in the generated report is
+still true, without it.
+
+If a real market data provider is unreachable, set `QUANTLAB_OFFLINE=1` (or
+just let the pipeline detect the failure itself) to use a deterministic
+synthetic price series instead; the generated report says so explicitly in
+its Data section when that happens.
 
 ## Quickstart Demo
 
-Run the two-day PoC end to end:
+Run the pipeline end to end:
 
 ```bash
 python -m quantlab.run \
@@ -94,6 +125,11 @@ Or drive it from a config file instead of flags (see [Configuration](#configurat
 ```bash
 python -m quantlab.run --config configs/momentum_nasdaq.yaml --out ./runs/momentum_nasdaq
 ```
+
+`configs/ml_momentum_nasdaq.yaml` runs the same objective through the
+walk-forward ridge-regression signal instead of the plain rank-based one;
+swap `model_kind: ridge` for `model_kind: xgboost` to use gradient-boosted
+trees instead, if the `[ml]` extra is installed.
 
 This produces `runs/momentum_nasdaq/<run_id>/` containing:
 
@@ -141,6 +177,12 @@ start: 2010-01-01
 end: 2025-01-01
 oos_start: 2022-01-01
 transaction_cost_bps: 5
+model_kind: rank_signal
+model_params:
+  lookback: 252
+  skip: 21
+  top_pct: 0.10
+  long_only: true
 models:
   planner: gpt-4o
   hypothesis: gpt-4o
@@ -151,23 +193,28 @@ budget:
   max_usd_per_run: 5.0
 ```
 
-| Field                  | Purpose                                             | Status            |
-| ---------------------- | --------------------------------------------------- | ----------------- |
-| `objective`            | Free-text research objective passed to the pipeline | Used today        |
-| `universe`             | Ticker universe to trade                            | Used today        |
-| `start` / `end`        | Full sample date range                              | Used today        |
-| `oos_start`            | Start of the out-of-sample evaluation window        | Used today        |
-| `transaction_cost_bps` | Per-side transaction cost, in basis points          | Used today        |
-| `models`               | Model routing per agent                             | Reserved for v0.5 |
-| `budget`               | Token and USD spend caps per run                    | Reserved for v0.5 |
+| Field                  | Purpose                                                           | Status                                 |
+| ---------------------- | ----------------------------------------------------------------- | -------------------------------------- |
+| `objective`            | Free-text research objective passed to the pipeline               | Used today                             |
+| `universe`             | Ticker universe to trade                                          | Used today                             |
+| `start` / `end`        | Full sample date range                                            | Used today                             |
+| `oos_start`            | Start of the out-of-sample evaluation window                      | Used today                             |
+| `transaction_cost_bps` | Per-side transaction cost, in basis points                        | Used today                             |
+| `model_kind`           | `rank_signal` (default), `ridge`, or `xgboost`                    | Used today                             |
+| `model_params`         | `lookback`, `skip`, `top_pct`, `long_only`, `min_train_periods`   | Used today                             |
+| `models`               | Model routing per agent (planner, hypothesis, summariser, report) | Used today when set, otherwise skipped |
+| `budget`               | Token and USD spend caps per run                                  | Used today when `models` is set        |
 
-`objective`, `universe`, `start`, `end`, `oos_start`, and
-`transaction_cost_bps` are read by the Data Engineering, Backtesting, and
-Evaluation agents today (`python -m quantlab.run --config configs/momentum_nasdaq.yaml`).
-`models` and `budget` are not consumed yet: the PoC's agents are
-deterministic stubs with no LLM calls (see [Roadmap](#roadmap)); those
-sections are the intended v0.5 interface for model routing and cost control
-once real LLM calls land.
+`objective`, `universe`, `start`, `end`, `oos_start`, `transaction_cost_bps`,
+`model_kind`, and `model_params` are always read by the Data Engineering,
+Model Development, Backtesting, and Evaluation agents. `models` and
+`budget` only matter if `OPENAI_API_KEY` is set: naming a model for a stage
+under `models` lets that agent draft its text with an LLM instead of its
+deterministic template, and `budget` caps total token and USD spend across
+the whole run, after which every remaining stage automatically falls back
+to its deterministic behaviour. Leaving `models` out entirely, or running
+without an API key, is a fully supported, fully deterministic mode, not a
+degraded one.
 
 ## Evaluation
 
@@ -179,12 +226,14 @@ Run the comparative benchmark:
 python -m quantlab.eval.run_benchmark --config configs/benchmark.yaml
 ```
 
-Honest scope note: since the PoC's agents are deterministic, the benchmark
-can't yet reproduce the single-agent or human-assisted baselines from the
-thesis proposal; those need the v0.5 LLM-driven agents. What it does give
-you today, end to end, is a genuine reflective-vs-non-reflective ablation
-(`use_reflection: true/false` in `configs/benchmark.yaml`), which is the
-"non-reflective multi-agent baseline" row in `docs/03_Evaluation_Framework.md`.
+Honest scope note: `run_config.models` can point individual agents at an
+LLM, but that is a per-stage text-drafting option, not a different system
+architecture, so this harness still cannot reproduce the "single-agent
+GPT-4o baseline" or "human-assisted workflow baseline" from the thesis
+proposal. What it does give you today, end to end and not simulated, is a
+genuine reflective-vs-non-reflective ablation (`use_reflection: true/false`
+in `configs/benchmark.yaml`), which is the "non-reflective multi-agent
+baseline" row in `docs/03_Evaluation_Framework.md`.
 
 ## Development
 

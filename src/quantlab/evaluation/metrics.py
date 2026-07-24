@@ -45,10 +45,6 @@ def win_rate(returns: pd.Series, freq: str = "ME") -> float:
     return float((grouped > 0).mean())
 
 
-def turnover_ratio(daily_weights: pd.DataFrame) -> float:
-    return float(daily_weights.diff().abs().sum(axis=1).mean() * TRADING_DAYS)
-
-
 def compute_all(
     returns: pd.Series,
     oos_start: str | None = None,

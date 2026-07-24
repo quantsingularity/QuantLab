@@ -13,7 +13,6 @@ dependencies = [
     "pyarrow>=15.0",
     "yfinance>=0.2.40",
     "scikit-learn>=1.4",
-    "xgboost>=2.0",
     "matplotlib>=3.8",
     "langgraph>=0.2.0",
     "openai>=1.40.0",
@@ -25,6 +24,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ml = [
+    "xgboost>=2.0",
+]
+postgres = [
+    "psycopg[binary]>=3.1",
+    "pgvector>=0.2",
+]
 dev = [
     "pytest>=8.0",
     "hypothesis>=6.100",
@@ -52,6 +58,20 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
+# BLE001 (no bare "except Exception") is silenced only at the specific
+# boundaries in this codebase that are meant to catch anything: an
+# unreachable data provider, an unreachable Postgres instance, or a
+# corrupt chart image embedded in the PDF report. Each of those sites
+# degrades gracefully to a documented fallback rather than crashing the
+# pipeline, which is the point of catching broadly there.
+# TRY004 (prefer TypeError for a wrong-type value) is silenced because
+# quantlab.core.llm.parse_json_response deliberately raises ValueError for
+# every kind of "the LLM did not return usable JSON" failure, matching
+# json.JSONDecodeError's own ValueError base, so every caller can catch a
+# single exception type instead of two for closely related failure modes.
+ignore = ["BLE001", "TRY004"]
 
 [tool.mypy]
 python_version = "3.12"

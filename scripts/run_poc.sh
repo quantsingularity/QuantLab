@@ -14,9 +14,10 @@ if ! python -c "import quantlab" >/dev/null 2>&1; then
 fi
 
 if [ -z "${OPENAI_API_KEY:-}" ]; then
-    echo "Note: OPENAI_API_KEY is not set. The PoC agents are deterministic" >&2
-    echo "stubs and do not require it yet, but core/llm.py will need it once" >&2
-    echo "v0.5 wires in real LLM calls." >&2
+    echo "Note: OPENAI_API_KEY is not set. Every agent has a deterministic" >&2
+    echo "fallback, so the run below will use those; set OPENAI_API_KEY and" >&2
+    echo "name a model under a config's models section to draft text with" >&2
+    echo "an LLM instead." >&2
 fi
 
 echo "Running QuantLab PoC on: \"${OBJECTIVE}\""

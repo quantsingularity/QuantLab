@@ -7,7 +7,7 @@ so that adding reflection does not change the topology.
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph

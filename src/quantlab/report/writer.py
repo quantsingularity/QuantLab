@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -96,7 +96,7 @@ def _literature_lines(papers: list[PaperSummary]) -> list[str]:
     for i, p in enumerate(papers, start=1):
         authors = ", ".join(p.authors) if p.authors else "Author unknown"
         link = f" [link]({p.url})" if p.url else ""
-        lines.append(f"{i}. **{p.title}** — {authors} ({p.year}).{link}")
+        lines.append(f"{i}. **{p.title}**, {authors} ({p.year}).{link}")
     return lines
 
 
@@ -165,7 +165,11 @@ def _limitations_lines(
 # --- Markdown assembly ------------------------------------------------------
 
 
-def render_markdown(state: ResearchState, chart_filename: str | None = None) -> str:
+def render_markdown(
+    state: ResearchState,
+    chart_filename: str | None = None,
+    discussion: str | None = None,
+) -> str:
     h: Hypothesis = state["hypothesis"]
     m: MetricsBundle = state["metrics"]
     bt = state["backtest"]
@@ -173,13 +177,15 @@ def render_markdown(state: ResearchState, chart_filename: str | None = None) -> 
     refs: list[Reflection] = state.get("reflections", [])
     papers: list[PaperSummary] = state.get("literature", [])
 
-    generated_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    generated_ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     oos_start = str(state.get("run_config", {}).get("oos_start", "2022-01-01"))
 
     n_tickers = None
+    is_synthetic = False
     features = state.get("features")
     if features:
         n_tickers = _count_universe_tickers(features[0].parquet_path)
+        is_synthetic = Path(features[0].parquet_path).stem.endswith("_synthetic")
     universe_desc = h.universe + (
         f" ({n_tickers} constituents, static PoC slice)" if n_tickers else ""
     )
@@ -224,11 +230,20 @@ def render_markdown(state: ResearchState, chart_filename: str | None = None) -> 
 
     lines.append("## 3. Data")
     lines.append("")
-    lines.append(
-        f"Universe: {universe_desc}. Daily close prices between {bt.start.date()} and "
-        f"{bt.end.date()}, sourced via yfinance and cached locally as parquet. No "
-        f"survivorship correction is applied in this proof-of-concept."
-    )
+    if is_synthetic:
+        lines.append(
+            f"Universe: {universe_desc}. Daily close prices between {bt.start.date()} and "
+            f"{bt.end.date()}. A real market data provider was not reachable for this run, "
+            f"so a deterministic synthetic price series was used instead; see "
+            f"`quantlab.data.loaders` for the generation method. Results in this report "
+            f"should be read as a pipeline validation, not a real-market backtest."
+        )
+    else:
+        lines.append(
+            f"Universe: {universe_desc}. Daily close prices between {bt.start.date()} and "
+            f"{bt.end.date()}, sourced via yfinance and cached locally as parquet. No "
+            f"survivorship correction is applied in this proof-of-concept."
+        )
     lines.append("")
 
     lines.append("## 4. Signal & Model Specification")
@@ -247,7 +262,7 @@ def render_markdown(state: ResearchState, chart_filename: str | None = None) -> 
     )
     lines.append("")
 
-    lines.append(f"## 6. Results (out-of-sample, {oos_start[:4]}–{bt.end.year})")
+    lines.append(f"## 6. Results (out-of-sample, {oos_start[:4]} to {bt.end.year})")
     lines.append("")
     lines.extend(_results_table_lines(m))
     lines.append("")
@@ -262,6 +277,9 @@ def render_markdown(state: ResearchState, chart_filename: str | None = None) -> 
         f"**Hypothesis test verdict:** {verdict_label}. Concretely, {verdict_detail}."
     )
     lines.append("")
+    if discussion:
+        lines.append(f"**Discussion:** {discussion}")
+        lines.append("")
 
     lines.append("## 7. Reflective Critique")
     lines.append("")
@@ -343,7 +361,7 @@ def save_equity_curve_png(equity_curve_path: str, out_dir: Path) -> Path | None:
     ax.xaxis_date()
 
     ax.set_title(
-        "Equity Curve — Growth of $1 (net of costs)",
+        "Equity Curve, Growth of $1 (net of costs)",
         fontsize=12,
         fontweight="bold",
         loc="left",
@@ -648,8 +666,10 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
                     story.append(
                         Image(str(img_path), width=iw * scale, height=ih * scale)
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    print(
+                        f"[quantlab.report.writer] Skipping unreadable chart image: {exc}"
+                    )
         elif (
             stripped.startswith("*")
             and stripped.endswith("*")

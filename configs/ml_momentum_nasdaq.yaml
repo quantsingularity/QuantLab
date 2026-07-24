@@ -1,0 +1,22 @@
+objective: "Develop a machine-learning momentum strategy for the NASDAQ 100"
+universe: nasdaq_100
+start: 2010-01-01
+end: 2025-01-01
+oos_start: 2022-01-01
+transaction_cost_bps: 5
+model_kind: ridge
+model_params:
+  lookback: 252
+  skip: 21
+  top_pct: 0.10
+  long_only: true
+  min_train_periods: 12
+models:
+  planner: gpt-4o
+  hypothesis: gpt-4o
+  summariser: gpt-4o-mini
+  report: gpt-4o
+budget:
+  max_tokens_per_run: 400000
+  max_usd_per_run: 5.0
+seed: 42
