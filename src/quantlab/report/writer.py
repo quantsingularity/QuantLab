@@ -434,6 +434,14 @@ _LINK_RE = re.compile(r"\[(.+?)\]\((.+?)\)")
 _IMAGE_RE = re.compile(r"^!\[(.*?)\]\((.*?)\)$")
 _NUMBERED_RE = re.compile(r"^\d+\.\s")
 
+# Times-Roman/Bold/Italic are 3 of the PDF standard 14 fonts: every PDF
+# viewer can render them with no font file shipped alongside the document,
+# the same zero-dependency guarantee the previous Helvetica choice had.
+_PAGE_MARGIN_LEFT = 60
+_PAGE_MARGIN_RIGHT = 60
+_PAGE_MARGIN_TOP = 50
+_PAGE_MARGIN_BOTTOM = 54
+
 
 def _palette(colors: Any) -> dict[str, Any]:
     """Colour tokens, built lazily so `reportlab` stays an optional import."""
@@ -458,7 +466,7 @@ def _inline_to_reportlab_markup(text: str) -> str:
     text = _escape_xml(text)
     text = _LINK_RE.sub(r'<link href="\2" color="#2563eb"><u>\1</u></link>', text)
     text = _BOLD_RE.sub(r"<b>\1</b>", text)
-    text = _CODE_RE.sub(r'<font face="Courier" size="8.5">\1</font>', text)
+    text = _CODE_RE.sub(r"\1", text)
     return text
 
 
@@ -479,72 +487,72 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
     )
 
     pal = _palette(colors)
-    content_width = LETTER[0] - 108
+    content_width = LETTER[0] - _PAGE_MARGIN_LEFT - _PAGE_MARGIN_RIGHT
 
     styles = {
         "title": ParagraphStyle(
             "QLTitle",
-            fontName="Helvetica-Bold",
-            fontSize=21,
-            leading=25,
+            fontName="Times-Bold",
+            fontSize=22,
+            leading=26,
             textColor=pal["ink"],
-            spaceAfter=2,
+            spaceAfter=3,
         ),
         "subtitle": ParagraphStyle(
             "QLSubtitle",
-            fontName="Helvetica-Oblique",
-            fontSize=11.5,
-            leading=15,
+            fontName="Times-Italic",
+            fontSize=12.5,
+            leading=16,
             textColor=pal["muted"],
-            spaceAfter=12,
+            spaceAfter=14,
         ),
         "h2": ParagraphStyle(
             "QLH2",
-            fontName="Helvetica-Bold",
-            fontSize=13,
-            leading=16,
+            fontName="Times-Bold",
+            fontSize=14,
+            leading=17,
             textColor=pal["accent_dark"],
-            spaceBefore=14,
-            spaceAfter=4,
+            spaceBefore=17,
+            spaceAfter=5,
         ),
         "body": ParagraphStyle(
             "QLBody",
-            fontName="Helvetica",
-            fontSize=9.6,
-            leading=13.8,
+            fontName="Times-Roman",
+            fontSize=10.4,
+            leading=15,
             textColor=pal["ink"],
-            spaceAfter=4,
+            spaceAfter=5,
         ),
         "caption": ParagraphStyle(
             "QLCaption",
-            fontName="Helvetica-Oblique",
-            fontSize=8.5,
-            leading=11,
+            fontName="Times-Italic",
+            fontSize=9.2,
+            leading=12,
             textColor=pal["muted"],
             alignment=TA_CENTER,
-            spaceBefore=2,
-            spaceAfter=10,
+            spaceBefore=3,
+            spaceAfter=12,
         ),
         "panel": ParagraphStyle(
             "QLPanel",
-            fontName="Helvetica",
-            fontSize=9.6,
-            leading=13.8,
+            fontName="Times-Roman",
+            fontSize=10.4,
+            leading=15,
             textColor=pal["ink"],
-            spaceAfter=2,
+            spaceAfter=3,
         ),
         "cell_head": ParagraphStyle(
             "QLCellHead",
-            fontName="Helvetica-Bold",
-            fontSize=9,
-            leading=12,
+            fontName="Times-Bold",
+            fontSize=9.6,
+            leading=13,
             textColor=pal["white"],
         ),
         "cell_body": ParagraphStyle(
             "QLCellBody",
-            fontName="Helvetica",
-            fontSize=9,
-            leading=12.5,
+            fontName="Times-Roman",
+            fontSize=9.6,
+            leading=13.5,
             textColor=pal["ink"],
         ),
     }
@@ -582,10 +590,10 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
         tstyle = [
             ("BACKGROUND", (0, 0), (-1, 0), pal["accent_dark"]),
             ("LINEBELOW", (0, 0), (-1, 0), 1, pal["accent_dark"]),
-            ("TOPPADDING", (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("LEFTPADDING", (0, 0), (-1, -1), 9),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 9),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ]
         for r in range(1, len(data)):
@@ -594,7 +602,7 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
             tstyle.append(("LINEBELOW", (0, r), (-1, r), 0.4, pal["border"]))
         t.setStyle(TableStyle(tstyle))
         _emit(t)
-        story.append(Spacer(1, 12))
+        story.append(Spacer(1, 14))
         table_buffer.clear()
 
     def _flush_quote() -> None:
@@ -610,15 +618,15 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
                 [
                     ("BACKGROUND", (0, 0), (-1, -1), pal["panel_bg"]),
                     ("BOX", (0, 0), (-1, -1), 0.75, pal["panel_border"]),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 12),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-                    ("TOPPADDING", (0, 0), (-1, -1), 9),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 14),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 14),
+                    ("TOPPADDING", (0, 0), (-1, -1), 10),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
                 ]
             )
         )
         _emit(panel)
-        story.append(Spacer(1, 12))
+        story.append(Spacer(1, 14))
         quote_buffer.clear()
 
     for raw_line in md.splitlines():
@@ -643,7 +651,7 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
 
         if not stripped:
             if not pending_heading:
-                story.append(Spacer(1, 6))
+                story.append(Spacer(1, 7))
         elif stripped == "---":
             _emit(Spacer(1, 4))
             _emit(
@@ -672,8 +680,8 @@ def _markdown_to_flowables(md: str, out_dir: Path) -> list[Any]:
                     width="100%",
                     thickness=1,
                     color=pal["accent_dark"],
-                    spaceBefore=1,
-                    spaceAfter=6,
+                    spaceBefore=2,
+                    spaceAfter=8,
                 )
             )
         elif (m_img := _IMAGE_RE.match(stripped)) is not None:
@@ -758,15 +766,17 @@ def save_report_pdf(md: str, out_dir: Path) -> Path | None:
             self.saveState()
             self.setFillColor(pal["accent_dark"])
             self.rect(0, page_h - 6, page_w, 6, fill=1, stroke=0)
-            self.setFont("Helvetica", 8)
+            self.setFont("Times-Roman", 8.5)
             self.setFillColor(pal["muted"])
-            self.drawString(54, 28, "QuantLab Research Report")
+            self.drawString(_PAGE_MARGIN_LEFT, 28, "QuantLab Research Report")
             self.drawRightString(
-                page_w - 54, 28, f"Page {self._pageNumber} of {total_pages}"
+                page_w - _PAGE_MARGIN_RIGHT,
+                28,
+                f"Page {self._pageNumber} of {total_pages}",
             )
             self.setStrokeColor(pal["border"])
             self.setLineWidth(0.75)
-            self.line(54, 38, page_w - 54, 38)
+            self.line(_PAGE_MARGIN_LEFT, 38, page_w - _PAGE_MARGIN_RIGHT, 38)
             self.restoreState()
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -774,10 +784,10 @@ def save_report_pdf(md: str, out_dir: Path) -> Path | None:
     doc = SimpleDocTemplate(
         str(out),
         pagesize=LETTER,
-        leftMargin=54,
-        rightMargin=54,
-        topMargin=46,
-        bottomMargin=50,
+        leftMargin=_PAGE_MARGIN_LEFT,
+        rightMargin=_PAGE_MARGIN_RIGHT,
+        topMargin=_PAGE_MARGIN_TOP,
+        bottomMargin=_PAGE_MARGIN_BOTTOM,
         title="QuantLab Research Report",
     )
     story = _markdown_to_flowables(md, out_dir)

@@ -14,7 +14,11 @@ from quantlab.core.state import (
     ResearchState,
 )
 from quantlab.data.loaders import load_prices
-from quantlab.report.writer import _markdown_to_flowables, render_markdown
+from quantlab.report.writer import (
+    _inline_to_reportlab_markup,
+    _markdown_to_flowables,
+    render_markdown,
+)
 
 
 def _state(tmp_path: Path) -> ResearchState:
@@ -138,3 +142,48 @@ def test_multiple_sections_each_get_their_own_keep_together_group(tmp_path):
     flowables = _markdown_to_flowables(md, tmp_path)
     groups = [f for f in flowables if isinstance(f, KeepTogether)]
     assert len(groups) == 2
+
+
+def test_pdf_styles_use_times_new_roman_family(tmp_path):
+    from reportlab.platypus import KeepTogether, Paragraph
+
+    md = "# Title\n\n### Subtitle\n\n## 1. Heading\n\nBody paragraph text.\n"
+    flowables = _markdown_to_flowables(md, tmp_path)
+
+    def _iter_paragraphs(items):
+        for item in items:
+            if isinstance(item, KeepTogether):
+                yield from _iter_paragraphs(item._content)
+            elif isinstance(item, Paragraph):
+                yield item
+
+    font_names = {p.style.fontName for p in _iter_paragraphs(flowables)}
+    assert font_names
+    assert font_names <= {"Times-Roman", "Times-Bold", "Times-Italic"}
+    assert not any(name.startswith("Helvetica") for name in font_names)
+
+
+def test_inline_code_renders_as_plain_text_not_a_separate_courier_span():
+    """Regression test: backtick-wrapped terms must match the surrounding prose.
+
+    quantlab.report.writer used to wrap inline code in a Courier <font> span.
+    Courier's heavier, fixed-width strokes make text at an identical colour
+    read as a visibly different shade, so the PDF now renders inline code
+    as plain text in the same font and colour as everything around it.
+    """
+    markup = _inline_to_reportlab_markup("Model kind: `rank_signal`")
+    assert "Courier" not in markup
+    assert "<font" not in markup
+    assert "rank_signal" in markup
+
+
+def test_inline_code_backticks_are_stripped_in_pdf_table_cells(tmp_path):
+    from reportlab.platypus import Table
+
+    md = "| Parameter | Value |\n| --- | --- |\n| `lookback` | 252 |\n"
+    flowables = _markdown_to_flowables(md, tmp_path)
+    tables = [f for f in flowables if isinstance(f, Table)]
+    assert tables
+    cell_paragraph = tables[0]._cellvalues[1][0]
+    assert "Courier" not in cell_paragraph.text
+    assert "lookback" in cell_paragraph.text
